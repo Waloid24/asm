@@ -3,55 +3,80 @@
 org 100h
 
 
-Start:	
-		;mov bx, 0b800h
-		;mov es, bx
-		;xor bx, bx		
-		xor si, si
+Start:	xor si, si
 		call SymWord		; there is a num in ax 
-		mov es:[0h], ax
+		mov ds:[0h], ax
 		
 		push ax				; save in stack first num
 		
 		xor ax, ax
 		call SymWord		; second num in ax
-		mov es:[1h], ax
+		mov ds:[2h], ax
 
 		mov bx, ax			; in bx - second num
 		pop ax				; in ax - first num
 		push ax
 		
 		add ax, bx			; sum in ax
-		mov es:[2h], ax		; sum in es:[2h]
+		mov ds:[4h], ax		; sum in es:[4h]
 
 		pop ax
 		push ax
 
 		sub ax, bx			
-		mov es:[4h], ax		; sub in es:[3h]
+		mov ds:[6h], ax		; sub in es:[6h]
 
 		pop ax
 		push ax				; save ax
 
 		mul bx
-		mov es:[6h], ax		; mul in es:[4h]
+		mov ds:[8h], ax		; mul in es:[8h]
 		
 		pop ax
 		push ax
 
 		div bx
-		mov es:[8h], ax
+		mov ds:[10d], ax	; mul in es:[10d]
 		
 		pop ax
-		
-		mov si, 80d * 25d
-		mov bx, es:[2h]
+		;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		mov si, (80d * 3d * 2d) + (65d * 2d)
+		mov bx, ds:[4h]
 		call NumSysBin
+		
+		mov si, (80d * 4d * 2d) + (65d * 2d)
+		mov bx, ds:[4h]
+		call HexStart
+		;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		mov si, (80d * 8d * 2d) + (65d * 2d)
+		mov bx, ds:[6h]
+		call NumSysBin
+
+		mov si, (80d * 9d * 2d) + (65d * 2d)
+		mov bx, ds:[6h]
+		call HexStart
+		;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		mov si, (80d * 13d * 2d) + (65d * 2d)
+		mov bx, ds:[8h]
+		call NumSysBin
+
+		mov si, (80d * 14d * 2d) + (65d * 2d)
+		mov bx, ds:[8h]
+		call HexStart
+		;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+		mov si, (80d * 18d * 2d) + (65d * 2d)
+		mov bx, ds:[10d]
+		call NumSysBin
+
+		mov si, (80d * 19d * 2d) + (65d * 2d)
+		mov bx, ds:[10d]
+		call HexStart
+		;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 		mov ax, 4c00h
 		int 21h
 
-;include ARGCONSOLE.COM	; take the num from the console
+
 
 ;------------------------------------------------
 ;TAKE THE ARGUMENT FROM THE CONSOLE
@@ -93,7 +118,7 @@ SymWord     proc
 ;
 ;Exit:      
 ;Excepts:	DX = 00000001b, ES = 0b800h
-;Destroys:	AX, BX, CX, ES, SI
+;Destroys:	AX, BX, CX, DX, ES, SI
 ;-------------------------------------------------------
 
 NumSysBin		proc
@@ -121,13 +146,13 @@ Binary          proc
 ??MovOne:       mov bh, 34h
                 mov bl, 31h         ; bx & mask == 1, then ASCII 1
                 mov es:[si], bx
-                add si, 2
+                sub si, 2
                 jmp ??EndCompar
                 
 ??MovNull:      mov bh, 34h
                 mov bl, 30h         ; bx & mask == 0, then ASCII 0
                 mov es:[si], bx
-                add si, 2
+                sub si, 2
                 jmp ??EndCompar
 
 ??EndCompar:    pop bx
@@ -138,5 +163,58 @@ Binary          proc
 
                 ret
                 endp
+				
+;------------------------------------------------------
+;OUTPUT A NUMBER IN HEX MODE
+;------------------------------------------------------
+;Entry:		BX, SI
+;
+;Exit:      
+;Excepts:	DX = 00000001b, ES = 0b800h
+;Destroys:	AX, BX, CX, DX, ES, SI
+;-------------------------------------------------------		
+	
+HexStart    proc
 
-end Start
+            mov dx, 0b800h
+		    mov es, dx
+
+            mov dx, 00001111b   ; mask
+            mov cx, 4d          ; number of bits
+            call Hex
+
+            ret
+            endp
+
+Hex         proc
+
+            push bx
+
+            AND bx, dx
+            cmp bx, 10d
+            jae ??Letter
+            jl ??Num
+
+??Letter:   
+            add bl, 37h
+            mov bh, 34h
+            mov es:[si], bx
+            sub si, 2
+            jmp ??EndComp
+
+??Num:      add bl, 30h
+            mov bh, 34h
+            mov es:[si], bx
+            sub si, 2
+            jmp ??EndComp
+
+??EndComp:  pop bx
+
+            SHR bx, 4d
+                
+            loop Hex
+
+            ret
+            endp
+
+end 			Start
