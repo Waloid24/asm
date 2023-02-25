@@ -51,8 +51,7 @@ Start:
             call Frame
 
             mov ax, [si + 4]  ; height
-            mov bl, 2d
-            div bl              ; half height 
+            shr ax, 1d
             
             mov bl, 160d
             mul bl
@@ -73,13 +72,15 @@ Start:
             xor bh, bh
             sub ax, bx
             mov di, ax
+            test di, 1d
+            je ??Evenn
+            inc di
 
-            xor si, si          ; rm 
+??Evenn:    xor si, si          ; rm 
             xor bx, bx          ; rm
             ;xor ax, ax          ; rm 
 
             call SendTextVid
-
 
             mov ax, 4c00h
             int 21h
@@ -124,6 +125,9 @@ Frame           proc
 
                 mov al, [si + 2]        ; right upper corner
                 mov es:[di], ax
+                
+                mov ax, 4c00h
+                int 21h
 
                 add di, 162d
                 push bx
