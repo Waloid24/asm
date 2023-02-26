@@ -7,7 +7,15 @@ DEFMAS db 12d, 'Hello world!'
 .code
 org 100h
 
-Start:
+locals
+
+Start:      xor ax, ax
+            xor bx, bx
+            xor cx, cx
+            xor dx, dx
+            xor si, si
+            xor di, di
+
             call GetNum         ; Ox
             lea di, PARAMS
             mov [di], ax
@@ -78,7 +86,6 @@ Start:
 
 ??Evenn:    xor si, si          ; rm 
             xor bx, bx          ; rm
-            ;xor ax, ax          ; rm 
 
             call SendTextVid
 
@@ -98,91 +105,95 @@ MODE2 db 214d, 205d, 183d, 186d, 0d, 186d, 211d, 205d, 189d, 34h
 ;
 ;Exit:      
 ;Excepts:	
-;Destroys:	AX, BX, CX, SI
+;Destroys:	AX, BX, FLAGS
 ;----------------------------------------------------	
 
 Frame           proc
 
                 push si
                 push es
-                push cx
+
+                push bx
+                push dx
 
                 call SetMode        ; now ax free, si has address of MODE
 
                 mov ax, 0b800h
                 mov es, ax          ; video mem access
-                mov cx, bx          ; bx is width
 
+
+                mov cx, bx          ; cx is width
                 mov ah, [si + 9]    ; style
                 mov al, [si]
-                mov es:[di], ax
-                add di, 2
-                sub cx, 2
+                mov bh, [si + 9]
+                mov bl, [si + 1]
+                mov dh, [si + 9]
+                mov dl, [si + 2]
 
-                cld
-                mov al, [si + 1] 
-                rep stosw               ; print left upper line
+                call FrLine
 
-                mov al, [si + 2]        ; right upper corner
-                mov es:[di], ax
-                
-                mov ax, 4c00h
-                int 21h
-
-                add di, 162d
-                push bx
-                add bx, bx
-                sub di, bx              ; left border on next level
-                pop bx
-
-                sub dx, 2               ; without top and bottom line
-                mov cx, dx
-
-
-??FrameBody:    push cx
-
-                mov cx, bx              ; cx is width
-                
-                mov al, [si + 3]        ; left border
-                mov es:[di], ax
-                add di, 2
-                sub cx, 2
-                
-                mov al, [si + 4]
-                rep stosw
-
-                mov al, [si + 5]
-                mov es:[di], ax
-                add di, 2
-                add di, 160d
-                push bx
-                add bx, bx
-                sub di, bx              ; left border on next level
-                pop bx
+                mov al, [si + 3]
+                ;mov bl, [si + 4]
+                mov dl, [si + 5]
 
                 pop cx
-                loop ??FrameBody
+                sub cx, 2
+                pop bx              ; width
+
+
+@@Next:         push cx
+                mov cx, bx
+                push bx 
+                mov bh, [si + 9]
+                mov bl, [si + 4]
+                call FrLine
+                pop bx
+                pop cx
+                loop @@Next
 
                 mov cx, bx
-
                 mov al, [si + 6]
-                mov es:[di], ax         ; left bottom corner
-                add di, 2
-                sub cx, 2
+                mov bh, [si + 9]
+                mov bl, [si + 7]
+                mov dl, [si + 8]
 
-                cld
-                mov al, [si + 7] 
-                rep stosw               ; print bottom line
+                call FrLine
 
-                mov al, [si + 8]        ; right bottom corner
-                mov es:[di], ax                
-
-                pop cx
                 pop es
                 pop si
 
                 ret
                 endp
+
+;----------------------------------------------------------------------
+;PRINT FRAME LINE
+;----------------------------------------------------------------------
+;Entry:	AX (left sym), BX (middle sym), CX (length line) DX (right sym)
+;
+;Exit:      
+;Excepts:	
+;Destroys:	AX, BX, CX, DI
+;---------------------------------------------------------------------
+
+FrLine          proc
+
+                push di
+                push cx
+
+                stosw
+                sub cx, 2d
+                mov ax, bx
+                rep stosw
+                mov ax, dx
+                stosw               
+
+                pop cx
+                pop di
+                add di, 80d * 2d
+                
+                ret
+                endp
+
 ;----------------------------------------------------
 ;SET MODE 
 ;----------------------------------------------------
@@ -267,6 +278,7 @@ GetConsText     proc
                 push ax
                 push cx
                 push bx
+                push es
 
                 cld
                 add si, 0082h
@@ -299,7 +311,8 @@ GetConsText     proc
                 lea si, MASSAGE
                 mov [si], al
 
-??end:          pop bx
+??end:          pop es
+                pop bx
                 pop cx
                 pop ax
                 pop si
