@@ -35,8 +35,27 @@ Start:              cli                               ; we prohibit interrupts
                     inc dx
                     int 21h
 
+SAVE_BUF db 9d*9d*2d dup(?)
+DRAW_BUF db 9d*9d*2d dup(?)
+
+LENG_FRAME = 9d
+WIDT_FRAME = 9d
+
+;========================================================
+;SEND INFORMATION TO SAVE BUFFER
+;========================================================
+;--------------------------------------------------------
+; 
+; 
+;--------------------------------------------------------
+;
+;ENTRY:     DS:SI -- where to send data from
+;
+;DESTROYS:  FLAGS
+;--------------------------------------------------------
+
 New09Ofs            proc
-                    push ax bx dx di es
+                    push ax bx dx di es ds
 
                     in al, 60h
                     cmp al, 3d
@@ -83,6 +102,26 @@ New09Ofs            proc
                     jmp @@End
 
 @@OffFrame:         
+                    mov di, 160d * 2d + 138d
+                    mov cx, 0b800h
+                    mov es, cx
+                    mov cx, cs
+                    mov ds, cx
+                    lea si, SAVE_BUF
+                    
+                    mov cx, 9d          ; frame height
+
+@@Next:             push cx
+                    mov cx, 9d          ; frame width 
+                    push di
+                    
+                    rep movsw           ; ds:si -> es:di
+
+                    pop di
+                    add di, 160d
+                    pop cx
+                    loop @@Next
+                    
                     cli
                     xor bx, bx
                     mov es, bx
@@ -93,14 +132,163 @@ New09Ofs            proc
                     mov ax, Old08Seg
                     mov es:[bx + 2], ax
                     sti
+                    
+
                     jmp @@End
 
-@@End:              pop es di dx bx ax
+@@End:              pop ds es di dx bx ax
                     db 0eah
 Old09Ofs dw 0
 Old09Seg dw 0
 
                     endp
+
+;========================================================
+; COMPARE DRAW BUFFER WITH VIDEO MEMORY
+;========================================================
+;--------------------------------------------------------
+; The function compares the contents of the video memory
+; with the contents of the buffer. 
+; Sends the difference to the buffer.
+;--------------------------------------------------------
+;
+;ENTRY:     
+;
+;DESTROYS:  FLAGS
+;
+;--------------------------------------------------------
+
+CmpDbAndVM          proc
+
+                    push si di cx dx ds es
+
+                    cld
+
+                    mov si, 0b800h
+                    mov ds, si
+                    mov si, 160d * 2d + 138d        ; ds:si - videomem
+
+                    mov cx, cs
+                    mov es, cx
+                    lea di, DRAW_BUF                ; es:di - DRAW_BUF
+
+                    mov cx, 9d 
+
+@@Next:             
+                    push cx
+                    mov cx, 9d
+                    push si
+
+@@NextLet:          cmpsw
+
+                    jne @@NotEqual
+                    loop @@NextLet
+
+@@NextLet1:         
+                    pop si
+                    add si, 160d
+                    pop cx
+                    loop @@Next
+                    jmp @@End
+
+
+@@NotEqual:         push dx
+                    push di
+                    push si
+                    
+
+                    ;mov dx, 0b800h
+                    ;mov ds, dx
+                    ;mov dx, cs
+                    ;mov es, dx
+
+                    lea si, DRAW_BUF
+                    sub di, si
+                    sub di, 2d
+                    mov dx, di
+
+                    lea di, SAVE_BUF
+                    add di, dx                ; es:di -- SAVE_BUF
+
+                    pop si
+                    sub si, 2
+
+                    movsw                     ; ds:si -> es:di
+
+                    pop di                    ; es:di - DRAW_BUF
+                    
+                    pop dx
+                    loop @@NextLet
+                    jmp @@NextLet1
+
+@@End:
+
+                    pop es ds dx cx di si
+
+                    ret
+                    endp
+
+
+;========================================================
+;SEND INFORMATION TO SAVE BUFFER
+;========================================================
+;--------------------------------------------------------
+; 
+; 
+;--------------------------------------------------------
+;
+;ENTRY:     DS:SI -- where to send data from
+;
+;DESTROYS:  FLAGS
+;--------------------------------------------------------
+
+SendDB              proc
+
+                    push cx si di ds es 
+                    mov di, 0b800h
+                    mov ds, di
+                    mov si, 160d * 2d + 138d
+
+                    mov di, cs
+                    mov es, di
+                    lea di, DRAW_BUF
+
+                    mov cx, 9d          ; frame height
+
+@@Next:             
+                    push cx
+                    mov cx, 9d          ; frame width 
+                    push si
+                    
+                    
+                    rep movsw           ; ds:si -> es:di
+
+                    pop si
+                    add si, 160d
+                    pop cx
+                    loop @@Next
+
+                    pop es ds di si cx
+
+                    ret
+                    endp
+
+
+;========================================================
+; COMPARE DRAW BUFFER WITH VIDEO MEMORY
+;========================================================
+;--------------------------------------------------------
+; New actions performed when IRQ0 is interrupted:
+;   -> processes DRAW and SAVE buffers
+;   -> prints and updates registers in video memory
+;   -> standart IRQ0
+;--------------------------------------------------------
+;
+;ENTRY:     NONE
+;
+;DESTROYS:  FLAGS
+;
+;--------------------------------------------------------
 
 New08Ofs            proc
                     push bp
@@ -108,8 +296,10 @@ New08Ofs            proc
 
                     push ax bx cx dx di
 
-                    mov ax, [bp - 2]        ; ax
+                    call CmpDbAndVM
+
                     mov di, 160d * 3d + 152d
+                    mov ax, [bp - 2]        ; ax
                     call PrintHex
 
                     add di, 320d
@@ -123,6 +313,8 @@ New08Ofs            proc
                     add di, 320d
                     mov ax, [bp - 8]
                     call PrintHex
+
+                    call SendDB
 
 @@End:              
                     pop di dx cx bx ax
