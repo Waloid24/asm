@@ -229,7 +229,6 @@ CmpDbAndVM          proc
 @@End:
 
                     pop es ds dx cx di si
-
                     ret
                     endp
 
@@ -295,13 +294,37 @@ SendDB              proc
 ;
 ;--------------------------------------------------------
 
-New08Ofs            proc
+New08Ofs            proc                    
                     push bp
                     mov bp, sp
 
-                    push ax bx cx dx di
+                    push ax bx cx dx di si
 
                     call CmpDbAndVM
+
+;---------
+                    mov di, 160d * 2d + 138d
+                    mov bx, 9d
+                    mov dx, 9d
+
+                    call Frame
+
+                    lea si, PrAx
+                    add di, 160d + 2d
+                    call PrintArr
+
+                    lea si, PrBx
+                    add di, 320d
+                    call PrintArr
+
+                    lea si, PrCx
+                    add di, 320d
+                    call PrintArr
+
+                    lea si, PrDx
+                    add di, 320d
+                    call PrintArr
+;-----------
 
                     mov di, 160d * 3d + 152d
                     mov ax, [bp - 2]        ; ax
@@ -322,8 +345,11 @@ New08Ofs            proc
                     call SendDB
 
 @@End:              
-                    pop di dx cx bx ax
+                    pop si di dx cx bx ax
                     pop bp
+
+                    ;sti
+
                     db 0eah
 Old08Ofs dw 0
 Old08Seg dw 0
