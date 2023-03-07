@@ -59,6 +59,7 @@ New09Ofs            proc
 
                     in al, 60h
                     cmp al, 3d
+
                     je @@Frame
 
                     cmp al, 4d
@@ -67,6 +68,8 @@ New09Ofs            proc
                     jmp @@End
 
 @@Frame:
+                    call CmpDbAndVM
+
                     mov di, 160d * 2d + 138d
                     mov bx, 9d
                     mov dx, 9d
@@ -88,6 +91,8 @@ New09Ofs            proc
                     lea si, PrDx
                     add di, 320d
                     call PrintArr
+
+                    call SendDB
 
                     cli
                     xor bx, bx
